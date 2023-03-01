@@ -3,6 +3,7 @@
 #include <stack>
 #include <stdio.h>
 #include <msclr\marshal_cppstd.h>
+
 #pragma once
 
 namespace CPPFormProj {
@@ -21,20 +22,17 @@ namespace CPPFormProj {
 	public ref class MyForm : public System::Windows::Forms::Form
 	{
 	public:
-		int chosen_opp = -1; // 0 = add, 1 = sub, 2 = mult, 3 = div
-		std::vector<int>* num_list;
 		std::stack<double>* num_stack;
-	   std::stack<char>* opp_stack;
-		
+	    std::stack<char>* opp_stack;
+		std::string* curr_history_line;
 		MyForm(void)
 		{
 			InitializeComponent();
 			resultButton->Select();
-			
 			calcBox->Text = "";
-			num_list = new std::vector<int>();
 			num_stack = new std::stack<double>();
 			opp_stack = new std::stack<char>();
+			curr_history_line = new std::string();
 		}
 
 	protected:
@@ -46,9 +44,9 @@ namespace CPPFormProj {
 			if (components)
 			{
 				delete components;
-				delete num_list;
 				delete num_stack;
 				delete opp_stack;
+				delete curr_history_line;
 			}
 		}
 
@@ -588,6 +586,8 @@ namespace CPPFormProj {
 
 	// KEYBOARD INPUT
 	private: System::Void MyForm_KeyPress(System::Object^ sender, System::Windows::Forms::KeyPressEventArgs^ e) {
+		resultButton->Select();
+		std::string txt = "";
 		if (e->KeyChar == System::Convert::ToChar(Keys::Enter))
 		{
 			if (String::IsNullOrEmpty(calcBox->Text))
@@ -597,6 +597,14 @@ namespace CPPFormProj {
 			num_stack->push(System::Convert::ToDouble(calcBox->Text));
 
 			RunCalculation();
+		}
+		if (e->KeyChar == System::Convert::ToChar(Keys::Escape))
+		{
+			ClearCalculator();
+		}
+		if (e->KeyChar == System::Convert::ToChar(Keys::Back))
+		{
+			DelChar();
 		}
 		switch (e->KeyChar)
 		{
@@ -651,6 +659,29 @@ namespace CPPFormProj {
 			break;
 		case 'c':
 			ClearCalculator();
+		case 'p':
+			InputIntake('p');
+			break;
+		case 's':
+			InputIntake('s');
+			UpdateTotal('s');
+			calcBox->Text = System::Convert::ToString(num_stack->top());
+			txt = "= " + std::to_string(num_stack->top());
+			UpdateHistory(txt, true);
+			*curr_history_line = "";
+			num_stack->pop();
+			opp_stack->pop();
+			break;
+		case 'f':
+			InputIntake('f');
+			UpdateTotal('f');
+			calcBox->Text = System::Convert::ToString(num_stack->top());
+			txt = "= " + std::to_string(num_stack->top());
+			UpdateHistory(txt, true);
+			*curr_history_line = "";
+			num_stack->pop();
+			opp_stack->pop();
+			break;
 		default:
 			System::Console::WriteLine("Invalid Key Pressed.");
 			break;
@@ -686,6 +717,7 @@ namespace CPPFormProj {
 		double num_a, num_b;
 		int num_stack_size = num_stack->size();
 		int opp_stack_size = opp_stack->size();
+		std::string history_txt = "";
 		if ( (num_stack->size() >= 1) && (opp_stack->size() >= 1) )
 		{
 			switch (operation)
@@ -696,6 +728,7 @@ namespace CPPFormProj {
 				num_a = num_stack->top();
 				num_stack->pop();
 				output = num_a + num_b;
+				history_txt = std::to_string(num_a) + " + " + std::to_string(num_b) + " ";
 				break;
 			case '-':
 				num_b = num_stack->top();
@@ -703,6 +736,7 @@ namespace CPPFormProj {
 				num_a = num_stack->top();
 				num_stack->pop();
 				output = num_a - num_b;
+				history_txt = std::to_string(num_a) + " - " + std::to_string(num_b) + " ";
 				break;
 			case '*':
 				num_b = num_stack->top();
@@ -710,6 +744,7 @@ namespace CPPFormProj {
 				num_a = num_stack->top();
 				num_stack->pop();
 				output = num_a * num_b;
+				history_txt = std::to_string(num_a) + " * " + std::to_string(num_b) + " ";
 				break;
 			case '/':
 				num_b = num_stack->top();
@@ -717,6 +752,7 @@ namespace CPPFormProj {
 				num_a = num_stack->top();
 				num_stack->pop();
 				output = num_a / num_b;
+				history_txt = std::to_string(num_a) + " / " + std::to_string(num_b) + " ";
 				break;
 			case 'p':
 				num_b = num_stack->top();
@@ -724,20 +760,24 @@ namespace CPPFormProj {
 				num_a = num_stack->top();
 				num_stack->pop();
 				output = pow(num_a, num_b);
+				history_txt = std::to_string(num_a) + " ** " + std::to_string(num_b) + " ";
 				break;
 			case 's':
 				num_a = num_stack->top();
 				num_stack->pop();
 				output = sqrt(num_a);
+				history_txt = "sqrt( " + std::to_string(num_a) + " ) ";
 				break;
 			case 'f':
 				num_a = num_stack->top();
 				num_stack->pop();
 				output = 1 / num_a;
+				history_txt = "1 / " + std::to_string(num_a) + " ";
 				break;
 			default:
 				break;
 			}
+			UpdateHistory(history_txt, false);
 			num_stack->push(output);
 		}
 	}
@@ -754,7 +794,10 @@ namespace CPPFormProj {
 		}
 		result = num_stack->top();
 		num_stack->pop();
+		
 		calcBox->Text = System::Convert::ToString(result);
+		UpdateHistory((" = " + std::to_string(result)), true);
+		*curr_history_line = "";
 	}
 
 
@@ -768,6 +811,7 @@ namespace CPPFormProj {
 			opp_stack->pop();
 		}
 		calcBox->Text = "";
+		historyBox->Text = "";
 	}
 
 	private: System::Void AddText(std::string txt) {
@@ -775,6 +819,17 @@ namespace CPPFormProj {
 		curr_text += txt;
 		String^ out_string = gcnew String(curr_text.c_str());
 		calcBox->Text = out_string;
+	}
+
+	private: System::Void UpdateHistory(std::string txt, bool push) {
+		*curr_history_line += txt;
+		if (push)
+		{
+			std::string out_cpp_string = *curr_history_line;
+			out_cpp_string += "\n\n";
+			String^ out_string = gcnew String(out_cpp_string.c_str());
+			historyBox->Text += out_string;
+		}
 	}
 
 };
