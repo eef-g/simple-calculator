@@ -16,7 +16,6 @@ void main(array<String^>^ args)
 
     CPPFormProj::MyForm form;
 
-    System::Console::WriteLine("Hello world!");
     Application::Run(% form);
 
 }
